@@ -40,6 +40,7 @@ from nerfstudio.process_data.images_to_nerfstudio_dataset import (
     ImagesToNerfstudioDataset,
 )
 from nerfstudio.process_data.video_to_nerfstudio_dataset import VideoToNerfstudioDataset
+from nerfstudio.process_data.diff_videos_to_nerfstudio_dataset import DiffVideosToNerfstudioDataset
 from nerfstudio.utils.rich_utils import CONSOLE
 
 
@@ -394,6 +395,7 @@ class ProcessRealityCapture(BaseConverterToNerfstudioDataset, _NoDefaultProcessR
 Commands = Union[
     Annotated[ImagesToNerfstudioDataset, tyro.conf.subcommand(name="images")],
     Annotated[VideoToNerfstudioDataset, tyro.conf.subcommand(name="video")],
+    Annotated[DiffVideosToNerfstudioDataset, tyro.conf.subcommand(name="diffvideos")],
     Annotated[ProcessPolycam, tyro.conf.subcommand(name="polycam")],
     Annotated[ProcessMetashape, tyro.conf.subcommand(name="metashape")],
     Annotated[ProcessRealityCapture, tyro.conf.subcommand(name="realitycapture")],
