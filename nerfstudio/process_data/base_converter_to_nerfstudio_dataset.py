@@ -31,6 +31,7 @@ class BaseConverterToNerfstudioDataset(ABC):
     """Path to the output directory."""
     verbose: bool = False
     """If True, print extra logging."""
+    poses_only: bool = False
 
     def __post_init__(self) -> None:
         self.output_dir.mkdir(parents=True, exist_ok=True)
