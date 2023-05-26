@@ -48,6 +48,7 @@ from nerfstudio.model_components.losses import (
 )
 from nerfstudio.model_components.ray_samplers import (
     ProposalNetworkSampler,
+    UniformProposalNetworkSampler,
     UniformSampler,
 )
 from nerfstudio.model_components.renderers import (
@@ -208,7 +209,7 @@ class NerfactoModel(Model):
         if self.config.proposal_initial_sampler == "uniform":
             initial_sampler = UniformSampler(single_jitter=self.config.use_single_jitter)
 
-        self.proposal_sampler = ProposalNetworkSampler(
+        self.proposal_sampler = UniformProposalNetworkSampler(
             num_nerf_samples_per_ray=self.config.num_nerf_samples_per_ray,
             num_proposal_samples_per_ray=self.config.num_proposal_samples_per_ray,
             num_proposal_network_iterations=self.config.num_proposal_iterations,
@@ -244,7 +245,7 @@ class NerfactoModel(Model):
         return param_groups
 
     def get_training_callbacks(
-        self, training_callback_attributes: TrainingCallbackAttributes
+            self, training_callback_attributes: TrainingCallbackAttributes
     ) -> List[TrainingCallback]:
         callbacks = []
         if self.config.use_proposal_weight_anneal:
@@ -355,7 +356,7 @@ class NerfactoModel(Model):
         return loss_dict
 
     def get_image_metrics_and_images(
-        self, outputs: Dict[str, torch.Tensor], batch: Dict[str, torch.Tensor]
+            self, outputs: Dict[str, torch.Tensor], batch: Dict[str, torch.Tensor]
     ) -> Tuple[Dict[str, float], Dict[str, torch.Tensor]]:
         image = batch["image"].to(self.device)
         rgb = outputs["rgb"]
