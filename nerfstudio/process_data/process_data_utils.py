@@ -175,6 +175,84 @@ def convert_video_to_images(
     return summary_log, num_final_frames
 
 
+def convert_video_to_all_images(
+    video_path: Path,
+    image_dir: Path,
+    crop_factor: Tuple[float, float, float, float] = (0.0, 0.0, 0.0, 0.0),
+    verbose: bool = False,
+) -> Tuple[List[str], int]:
+    """Converts a video into a sequence of images.
+    Args:
+        video_path: Path to the video.
+        output_dir: Path to the output directory.
+        crop_factor: Portion of the image to crop. Should be in [0,1] (top, bottom, left, right)
+        verbose: If True, logs the output of the command.
+    Returns:
+        A tuple containing summary of the conversion and the number of extracted frames.
+    """
+
+    for i in crop_factor:
+        if i < 0 or i > 1:
+            CONSOLE.print("[bold red]Error: Invalid crop factor. All crops must be in [0,1].")
+            sys.exit(1)
+
+    if video_path.is_dir():
+        CONSOLE.print(f"[bold red]Error: Video path is a directory, not a path: {video_path}")
+        sys.exit(1)
+    if video_path.exists() is False:
+        CONSOLE.print(f"[bold red]Error: Video does not exist: {video_path}")
+        sys.exit(1)
+
+    with status(msg="Converting video to images...", spinner="bouncingBall", verbose=verbose):
+        # delete existing images in folder
+        for img in image_dir.glob("*.png"):
+            if verbose:
+                CONSOLE.log(f"Deleting {img}")
+            img.unlink()
+
+        num_frames = get_num_frames_in_video(video_path)
+        if num_frames == 0:
+            CONSOLE.print(f"[bold red]Error: Video has no frames: {video_path}")
+            sys.exit(1)
+        CONSOLE.print("Number of frames in video:", num_frames)
+
+        out_filename = image_dir / "frame_%05d.png"
+        ffmpeg_cmd = f'ffmpeg -i "{video_path}"'
+
+        crop_cmd = ""
+        if crop_factor != (0.0, 0.0, 0.0, 0.0):
+            height = 1 - crop_factor[0] - crop_factor[1]
+            width = 1 - crop_factor[2] - crop_factor[3]
+            start_x = crop_factor[2]
+            start_y = crop_factor[0]
+            crop_cmd = f',"crop=w=iw*{width}:h=ih*{height}:x=iw*{start_x}:y=ih*{start_y}"'
+
+        # spacing = num_frames // num_frames_target
+        # if spacing > 1:
+        #     ffmpeg_cmd += f" -vf thumbnail={spacing},setpts=N/TB{crop_cmd} -r 1"
+        #     CONSOLE.print("Number of frames to extract:", math.ceil(num_frames / spacing))
+        # else:
+        #     CONSOLE.print("[bold red]Can't satisfy requested number of frames. Extracting all frames.")
+        #     ffmpeg_cmd += " -pix_fmt bgr8"
+        #     if crop_cmd != "":
+        #         ffmpeg_cmd += f" -vf {crop_cmd[1:]}"
+
+        ffmpeg_cmd += " -pix_fmt bgr8"
+        if crop_cmd != "":
+            ffmpeg_cmd += f" -vf {crop_cmd[1:]}"
+
+        ffmpeg_cmd += f" {out_filename}"
+        run_command(ffmpeg_cmd, verbose=verbose)
+
+    num_final_frames = len(list(image_dir.glob("*.png")))
+    summary_log = []
+    summary_log.append(f"Starting with {num_frames} video frames")
+    summary_log.append(f"We extracted {num_final_frames} images")
+    CONSOLE.log("[bold green]:tada: Done converting video to images.")
+
+    return summary_log, num_final_frames
+
+
 def copy_images_list(
     image_paths: List[Path],
     image_dir: Path,

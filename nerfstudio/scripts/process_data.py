@@ -12,9 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-#!/usr/bin/env python
+# !/usr/bin/env python
 """Processes a video or image sequence to a nerfstudio compatible dataset."""
-
 
 import sys
 import zipfile
@@ -40,6 +39,7 @@ from nerfstudio.process_data.images_to_nerfstudio_dataset import (
     ImagesToNerfstudioDataset,
 )
 from nerfstudio.process_data.video_to_nerfstudio_dataset import VideoToNerfstudioDataset
+from nerfstudio.process_data.unity_export import ProcessUnityExport
 from nerfstudio.process_data.diff_videos_to_nerfstudio_dataset import DiffVideosToNerfstudioDataset
 from nerfstudio.utils.rich_utils import CONSOLE
 
@@ -400,6 +400,7 @@ Commands = Union[
     Annotated[ProcessMetashape, tyro.conf.subcommand(name="metashape")],
     Annotated[ProcessRealityCapture, tyro.conf.subcommand(name="realitycapture")],
     Annotated[ProcessRecord3D, tyro.conf.subcommand(name="record3d")],
+    Annotated[ProcessUnityExport, tyro.conf.subcommand(name="unity")],
 ]
 
 
