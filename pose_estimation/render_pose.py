@@ -92,17 +92,17 @@ def _render_trajectory_video(
     cameras = cameras.to(pipeline.device)
     fps = len(cameras) / seconds
 
-    progress = Progress(
-        TextColumn(":movie_camera: Rendering :movie_camera:"),
-        BarColumn(),
-        TaskProgressColumn(
-            text_format="[progress.percentage]{task.completed}/{task.total:>.0f}({task.percentage:>3.1f}%)",
-            show_speed=True,
-        ),
-        ItersPerSecColumn(suffix="fps"),
-        TimeRemainingColumn(elapsed_when_finished=False, compact=False),
-        TimeElapsedColumn(),
-    )
+    # progress = Progress(
+    #     TextColumn(":movie_camera: Rendering :movie_camera:"),
+    #     BarColumn(),
+    #     TaskProgressColumn(
+    #         text_format="[progress.percentage]{task.completed}/{task.total:>.0f}({task.percentage:>3.1f}%)",
+    #         show_speed=True,
+    #     ),
+    #     ItersPerSecColumn(suffix="fps"),
+    #     TimeRemainingColumn(elapsed_when_finished=False, compact=False),
+    #     TimeElapsedColumn(),
+    # )
     output_image_dir = output_filename.parent / output_filename.stem
     if output_format == "images":
         output_image_dir.mkdir(parents=True, exist_ok=True)
@@ -119,63 +119,64 @@ def _render_trajectory_video(
     with ExitStack() as stack:
         writer = None
 
-        with progress:
-            for camera_idx in progress.track(range(cameras.size), description=""):
-                aabb_box = None
-                if crop_data is not None:
-                    bounding_box_min = crop_data.center - crop_data.scale / 2.0
-                    bounding_box_max = crop_data.center + crop_data.scale / 2.0
-                    aabb_box = SceneBox(torch.stack([bounding_box_min, bounding_box_max]).to(pipeline.device))
-                camera_ray_bundle = cameras.generate_rays(camera_indices=camera_idx, aabb_box=aabb_box)
+        # with progress:
+        # for camera_idx in progress.track(range(cameras.size), description=""):
+        for camera_idx in range(cameras.size):
+            aabb_box = None
+            if crop_data is not None:
+                bounding_box_min = crop_data.center - crop_data.scale / 2.0
+                bounding_box_max = crop_data.center + crop_data.scale / 2.0
+                aabb_box = SceneBox(torch.stack([bounding_box_min, bounding_box_max]).to(pipeline.device))
+            camera_ray_bundle = cameras.generate_rays(camera_indices=camera_idx, aabb_box=aabb_box)
 
-                if crop_data is not None:
-                    with renderers.background_color_override_context(
-                        crop_data.background_color.to(pipeline.device)
-                    ), torch.no_grad():
-                        outputs = pipeline.model.get_outputs_for_camera_ray_bundle(camera_ray_bundle)
-                else:
-                    with torch.no_grad():
-                        outputs = pipeline.model.get_outputs_for_camera_ray_bundle(camera_ray_bundle)
+            if crop_data is not None:
+                with renderers.background_color_override_context(
+                    crop_data.background_color.to(pipeline.device)
+                ), torch.no_grad():
+                    outputs = pipeline.model.get_outputs_for_camera_ray_bundle(camera_ray_bundle)
+            else:
+                with torch.no_grad():
+                    outputs = pipeline.model.get_outputs_for_camera_ray_bundle(camera_ray_bundle)
 
-                render_image = []
-                for rendered_output_name in rendered_output_names:
-                    if rendered_output_name not in outputs:
-                        CONSOLE.rule("Error", style="red")
-                        CONSOLE.print(f"Could not find {rendered_output_name} in the model outputs", justify="center")
-                        CONSOLE.print(
-                            f"Please set --rendered_output_name to one of: {outputs.keys()}", justify="center"
-                        )
-                        sys.exit(1)
-                    output_image = outputs[rendered_output_name]
-                    output_image = (
-                        colormaps.apply_colormap(
-                            image=output_image,
-                            colormap_options=colormap_options,
-                        )
-                        .cpu()
-                        .numpy()
+            render_image = []
+            for rendered_output_name in rendered_output_names:
+                if rendered_output_name not in outputs:
+                    CONSOLE.rule("Error", style="red")
+                    CONSOLE.print(f"Could not find {rendered_output_name} in the model outputs", justify="center")
+                    CONSOLE.print(
+                        f"Please set --rendered_output_name to one of: {outputs.keys()}", justify="center"
                     )
-                    render_image.append(output_image)
-                render_image = np.concatenate(render_image, axis=1)
-                if output_format == "images":
-                    if image_format == "png":
-                        media.write_image(output_image_dir / f"{camera_idx:05d}.png", render_image, fmt="png")
-                    if image_format == "jpeg":
-                        media.write_image(
-                            output_image_dir / f"{camera_idx:05d}.jpg", render_image, fmt="jpeg", quality=jpeg_quality
+                    sys.exit(1)
+                output_image = outputs[rendered_output_name]
+                output_image = (
+                    colormaps.apply_colormap(
+                        image=output_image,
+                        colormap_options=colormap_options,
+                    )
+                    .cpu()
+                    .numpy()
+                )
+                render_image.append(output_image)
+            render_image = np.concatenate(render_image, axis=1)
+            if output_format == "images":
+                if image_format == "png":
+                    media.write_image(output_image_dir / f"{camera_idx:05d}.png", render_image, fmt="png")
+                if image_format == "jpeg":
+                    media.write_image(
+                        output_image_dir / f"{camera_idx:05d}.jpg", render_image, fmt="jpeg", quality=jpeg_quality
+                    )
+            if output_format == "video":
+                if writer is None:
+                    render_width = int(render_image.shape[1])
+                    render_height = int(render_image.shape[0])
+                    writer = stack.enter_context(
+                        media.VideoWriter(
+                            path=output_filename,
+                            shape=(render_height, render_width),
+                            fps=fps,
                         )
-                if output_format == "video":
-                    if writer is None:
-                        render_width = int(render_image.shape[1])
-                        render_height = int(render_image.shape[0])
-                        writer = stack.enter_context(
-                            media.VideoWriter(
-                                path=output_filename,
-                                shape=(render_height, render_width),
-                                fps=fps,
-                            )
-                        )
-                    writer.add_image(render_image)
+                    )
+                writer.add_image(render_image)
 
     table = Table(
         title=None,
